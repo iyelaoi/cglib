@@ -17,6 +17,13 @@ package net.sf.cglib.core;
 
 import org.objectweb.asm.ClassVisitor;
 
+/**
+ * CGLIB核心接口，类生成
+ */
 public interface ClassGenerator {
+
+	/**
+	 * 产生目标类
+	 */
     void generateClass(ClassVisitor v) throws Exception;
 }

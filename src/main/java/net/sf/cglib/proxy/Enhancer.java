@@ -559,12 +559,12 @@ public class Enhancer extends AbstractClassGenerator
     }
 
     public void generateClass(ClassVisitor v) throws Exception {
-        Class sc = (superclass == null) ? Object.class : superclass;
+        Class sc = (superclass == null) ? Object.class : superclass; //获取父类
 
-        if (TypeUtils.isFinal(sc.getModifiers()))
+        if (TypeUtils.isFinal(sc.getModifiers())) // 父类为final则抛异常
             throw new IllegalArgumentException("Cannot subclass final class " + sc.getName());
-        List constructors = new ArrayList(Arrays.asList(sc.getDeclaredConstructors()));
-        filterConstructors(sc, constructors);
+        List constructors = new ArrayList(Arrays.asList(sc.getDeclaredConstructors())); //反射获取父类构造
+        filterConstructors(sc, constructors); // 过滤私有构造
 
         // Order is very important: must add superclass, then
         // its superclass chain, then each interface and
@@ -572,10 +572,11 @@ public class Enhancer extends AbstractClassGenerator
         List actualMethods = new ArrayList();
         List interfaceMethods = new ArrayList();
         final Set forcePublic = new HashSet();
-        getMethods(sc, interfaces, actualMethods, interfaceMethods, forcePublic);
+        getMethods(sc, interfaces, actualMethods, interfaceMethods, forcePublic); // 得到被代理类及父类、接口的非final、非static、非private方法
+        																		  // 这些方法是需要被代理的（在不考虑CallbackFilter的情况下）	
 
         List methods = CollectionUtils.transform(actualMethods, new Transformer() {
-            public Object transform(Object value) {
+            public Object transform(Object value) { // 传入每个actualMethod
                 Method method = (Method)value;
                 int modifiers = Constants.ACC_FINAL
                     | (method.getModifiers()
@@ -590,8 +591,11 @@ public class Enhancer extends AbstractClassGenerator
         });
 
         ClassEmitter e = new ClassEmitter(v);
+		
+		// 1. 生成class文件的版本号、类的访问描述符、类名、父类名、接口，并生成SourceFile属性
         if (currentData == null) {
-        e.begin_class(Constants.V1_8,
+
+		e.begin_class(Constants.V1_8,
                       Constants.ACC_PUBLIC,
                       getClassName(),
                       Type.getType(sc),
@@ -609,17 +613,21 @@ public class Enhancer extends AbstractClassGenerator
         }
         List constructorInfo = CollectionUtils.transform(constructors, MethodInfoTransformer.getInstance());
 
+		// 2. 生成private boolean CGLIB$BOUND字段
         e.declare_field(Constants.ACC_PRIVATE, BOUND_FIELD, Type.BOOLEAN_TYPE, null);
         e.declare_field(Constants.ACC_PUBLIC | Constants.ACC_STATIC, FACTORY_DATA_FIELD, OBJECT_TYPE, null);
         if (!interceptDuringConstruction) {
+			// 3. 生成private boolean CGLIB$CONSTRUCTED字段
             e.declare_field(Constants.ACC_PRIVATE, CONSTRUCTED_FIELD, Type.BOOLEAN_TYPE, null);
         }
+		// 4. 生成private static final ThreadLocal CGLIB$THREAD_CALLBACKS字段
         e.declare_field(Constants.PRIVATE_FINAL_STATIC, THREAD_CALLBACKS_FIELD, THREAD_LOCAL, null);
-        e.declare_field(Constants.PRIVATE_FINAL_STATIC, STATIC_CALLBACKS_FIELD, CALLBACK_ARRAY, null);
+		// 5. 生成private static final Callback[] CGLIB$STATIC_CALLBACKS字段
+		e.declare_field(Constants.PRIVATE_FINAL_STATIC, STATIC_CALLBACKS_FIELD, CALLBACK_ARRAY, null);
         if (serialVersionUID != null) {
             e.declare_field(Constants.PRIVATE_FINAL_STATIC, Constants.SUID_FIELD_NAME, Type.LONG_TYPE, serialVersionUID);
         }
-
+		// 6. 以下是生成Callback字段，可以看到，对应每个设置的Callback，都会在代理类中生成一个对应具体类型的字段
         for (int i = 0; i < callbackTypes.length; i++) {
             e.declare_field(Constants.ACC_PRIVATE, getCallbackField(i), callbackTypes[i], null);
         }
@@ -627,13 +635,18 @@ public class Enhancer extends AbstractClassGenerator
         e.declare_field(Constants.ACC_PRIVATE | Constants.ACC_STATIC, CALLBACK_FILTER_FIELD, OBJECT_TYPE, null);
 
         if (currentData == null) {
+			// 7. 生成需要代理类的方法
             emitMethods(e, methods, actualMethods);
+			// 8. 生成构造函数
             emitConstructors(e, constructorInfo);
         } else {
             emitDefaultConstructor(e);
         }
+		// 9. 生成代理类的CGLIB$SET_THREAD_CALLBACKS方法
         emitSetThreadCallbacks(e);
+		// 10. 生成代理类的CGLIB$SET_STATIC_CALLBACKS方法
         emitSetStaticCallbacks(e);
+		// 11. 生成代理类的CGLIB$BIND_CALLBACKS函数
         emitBindCallbacks(e);
 
         if (useFactory || currentData != null) {

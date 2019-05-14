@@ -63,6 +63,9 @@ public class ClassEmitter extends ClassTransformer {
         return classInfo;
     }
 
+	/**
+	 * 生成class文件的版本号、类的访问描述符、类名、父类名、接口，并生成SourceFile属性
+	 */
     public void begin_class(int version, final int access, String className, final Type superType, final Type[] interfaces, String source) {
         final Type classType = Type.getType("L" + className.replace('.', '/') + ";");
         classInfo = new ClassInfo() {

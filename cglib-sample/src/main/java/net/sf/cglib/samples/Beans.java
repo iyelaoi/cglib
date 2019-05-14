@@ -27,7 +27,7 @@ public class Beans implements MethodInterceptor {
     public static  Object newInstance( Class clazz ){
         try{
             Beans interceptor = new Beans();
-            Enhancer e = new Enhancer();
+            Enhancer e = new Enhancer();  
             e.setSuperclass(clazz);
             e.setCallback(interceptor);
             Object bean = e.create();

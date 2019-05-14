@@ -114,7 +114,7 @@ implements ClassGenerator
 
         public Object get(AbstractClassGenerator gen, boolean useCache) {
             if (!useCache) {
-              return gen.generate(ClassLoaderData.this);
+              return gen.generate(ClassLoaderData.this); 
             } else {
               Object cachedValue = generatedClasses.get(gen);
               return gen.unwrapCachedValue(cachedValue);
@@ -131,7 +131,7 @@ implements ClassGenerator
     }
 
     protected static class Source {
-        String name;
+        String name;  //ClassGenerator的实现类全名,如net.sf.cglib.proxy.Enhancer
         public Source(String name) {
             this.name = name;
         }
@@ -272,12 +272,18 @@ implements ClassGenerator
     protected ProtectionDomain getProtectionDomain() {
     	return null;
     }
-
-    protected Object create(Object key) {
+	
+	/**
+	 * AbstractClassGenerator抽象类实现了ClassGenerator接口，
+	 * 此类中并没有实现generateClass()方法，而是使用了模板方法设计模式，
+	 * protected Object create()即为模板方法，其中byte[] b=this.strategy.generate(this)
+	 * 会调用继承类中实现的generateClass()方法。
+	 */
+	protected Object create(Object key) {
         try {
             ClassLoader loader = getClassLoader();
             Map<ClassLoader, ClassLoaderData> cache = CACHE;
-            ClassLoaderData data = cache.get(loader);
+            ClassLoaderData data = cache.get(loader); //内部类
             if (data == null) {
                 synchronized (AbstractClassGenerator.class) {
                     cache = CACHE;
@@ -291,7 +297,7 @@ implements ClassGenerator
                 }
             }
             this.key = key;
-            Object obj = data.get(this, getUseCache());
+            Object obj = data.get(this, getUseCache()); //get()方法中调用generate()
             if (obj instanceof Class) {
                 return firstInstance((Class) obj);
             }
